@@ -171,8 +171,6 @@ d = R ⋅ c   (where R = 6371.0 km)
 ## Contact Information
 
 ### Madhan Mohan Reddy
-
-- [Email](mailto:madhanmohanreddyperam06@gmail.com)
 - **Mobile**: +91 9110395993
 
 ---
