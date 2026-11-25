@@ -1,276 +1,180 @@
-# 🚚 Delivery Route Optimization System
+# Logistics Delivery Route Optimizer
+![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?style=flat-square&logo=streamlit)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi)
+![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?style=flat-square&logo=pydantic)
+![Folium](https://img.shields.io/badge/Folium-0.16+-77B829?style=flat-square&logo=leaflet)
+![Plotly](https://img.shields.io/badge/Plotly-5.x-3F4F75?style=flat-square&logo=plotly)
+![OSRM](https://img.shields.io/badge/Routing-OSRM%20%26%20Haversine-2B6CB0?style=flat-square)
+![Algorithms](https://img.shields.io/badge/Algorithms-Dijkstra%20%7C%20A*%20%7C%20Held--Karp%20%7C%202--Opt%20%7C%20SA-orange?style=flat-square)
+![Pytest](https://img.shields.io/badge/Pytest-8.x-0A9EDC?style=flat-square&logo=pytest)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-FF4B4B)](https://streamlit.io)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Algorithm](https://img.shields.io/badge/Algorithm-Dijkstra's%20Shortest%20Path-orange)](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm)
+A full-stack logistics route planner powered by a **FastAPI** backend and a **Streamlit** frontend. It combines **Dijkstra's Shortest Path Algorithm**, **Held-Karp Exact Dynamic Programming**, **A\* Search**, **2-Opt Local Search**, and **Simulated Annealing** with real-world **OSRM road network routing** (plus Haversine fallback) to compute optimal delivery routes, interactive maps, and actionable fleet analytics.
 
-A comprehensive logistics route planner that uses **Dijkstra's Shortest Path Algorithm** to determine the most efficient delivery routes from a warehouse to multiple delivery locations.
+## Features
 
-## 🌟 Features
+- **Structured Client-Server Architecture**: Clean separation between the FastAPI REST API (`backend/`) and the interactive Streamlit dashboard (`frontend/`).
+- **Multi-Algorithm Route Optimization**:
+  - **Auto (Best Strategy)**: Automatically selects exact **Held-Karp Dynamic Programming** for up to 11 stops and switches to **2-Opt / Simulated Annealing** for larger routes.
+  - **Held-Karp Exact TSP**: Guarantees the mathematically optimal route (up to 14 stops).
+  - **Dijkstra + Nearest Neighbor + 2-Opt**: Eliminates path crossings over Dijkstra shortest-path matrices.
+  - **Dijkstra + Nearest Neighbor (Classic)**: Classic greedy shortest-path baseline.
+  - **A\* Shortest Path + 2-Opt**: Admissible Haversine heuristic search refined with 2-Opt.
+  - **Simulated Annealing**: Seeded stochastic search with 2-Opt and stop-relocation moves.
+- **Multi-Algorithm Benchmark**: Compare every algorithm side-by-side against your unoptimized input order.
+- **Real Road Network & Haversine Distances**: Fetches real driving distances, durations, and road polylines from OSRM (with automatic Haversine fallback when offline).
+- **Smart Geocoding**: Supports direct `"lat, lon"` coordinates, live OpenStreetMap Nominatim + Photon fallback, thread-safe rate limiting, in-memory caching, and offline demo fallback.
+- **Interactive Map & Analytics**: Numbered Folium route maps with auto-fitted bounds, Plotly visualizations, real savings vs. baseline input order, CO₂ footprint tracking, live vehicle parameter recalculation, and CSV/JSON exports.
 
-- **Smart Geocoding**: Convert addresses to coordinates using geopy and Nominatim API
-- **⚡ Real-time Geocoding**: Automatic coordinate analysis when locations are added
-- **📏 Distance Calculation**: Accurate distance calculation using Haversine formula
-- **🗺️ Interactive Maps**: Beautiful route visualization with Folium
-- **🎯 Route Optimization**: Dijkstra's algorithm for shortest path finding
-- **📊 Analytics Dashboard**: Comprehensive delivery metrics and insights
-- **🎨 Modern UI**: Clean and intuitive Streamlit interface with live feedback
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```text
-Delivery Route Optimization System/
-├── app.py                    # Main Streamlit application
-├── geocoding.py              # Address to coordinate conversion
-├── distance_calculator.py    # Haversine distance calculations
-├── graph_builder.py          # Graph construction for locations
-├── dijkstra_algorithm.py     # Dijkstra's shortest path implementation
-├── map_visualizer.py         # Interactive map creation
-├── analytics.py              # Delivery analytics and metrics
-├── requirements.txt          # Python dependencies
-└── README.md                 # Project documentation
+Delivery-Route-Optimizer/
+├── backend/
+│   ├── __init__.py
+│   ├── main.py                      # FastAPI application entrypoint & CORS setup
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── config.py                # Pydantic settings (API, OSRM, Nominatim, limits)
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── schemas.py               # Pydantic v2 request/response schemas & validators
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── dependencies.py          # Shared backend service providers
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       ├── health.py            # GET  /api/v1/health
+│   │       ├── geocoding.py         # POST /api/v1/geocode & /api/v1/geocode/batch
+│   │       ├── routing.py           # GET  /api/v1/algorithms, POST /optimize, /compare
+│   │       └── analytics.py         # POST /api/v1/analytics
+│   └── services/
+│       ├── __init__.py
+│       ├── geocoding_service.py     # Coordinate parser, Nominatim, Photon, fallback cache
+│       ├── distance_service.py      # OSRM Table API road matrix & Haversine matrix
+│       ├── graph_builder.py         # Directed/undirected weighted Graph builder
+│       ├── optimizer_service.py     # Dijkstra, A*, 2-Opt, Held-Karp, Simulated Annealing
+│       ├── road_routing_service.py  # OSRM road polyline geometry & LRU cache
+│       └── analytics_service.py     # Real baseline comparison, fuel, time, CO2, scoring
+├── frontend/
+│   ├── __init__.py
+│   ├── app.py                       # Main Streamlit application
+│   ├── config.py                    # Backend URL, algorithm labels, sample presets
+│   ├── api_client.py                # HTTPX API client & local embedded backend bootstrap
+│   └── components/
+│       ├── __init__.py
+│       ├── styles.py                # Responsive UI styles & route flow visualization
+│       ├── location_manager.py      # Presets, depot/stop forms, bulk import, reordering
+│       ├── map_viewer.py            # Folium interactive map with road polylines & overlay
+│       └── analytics_panel.py       # KPIs, Plotly charts, benchmark table, CSV/JSON export
+├── tests/
+│   ├── __init__.py
+│   ├── test_distance_and_graph.py   # Haversine & directed graph unit tests
+│   ├── test_algorithms.py           # Dijkstra, A*, Held-Karp, 2-Opt & SA tests
+│   ├── test_geocoding.py            # Geocoding & cache matching regression tests
+│   ├── test_analytics.py            # Baseline comparison & vehicle KPI tests
+│   ├── test_road_routing.py         # OSRM polyline & fallback tests
+│   └── test_api.py                  # FastAPI TestClient end-to-end endpoint tests
+├── assets/
+│   └── truck.png                    # Application truck icon
+├── .streamlit/
+│   └── config.toml                  # Streamlit runtime settings
+├── run_app.py                       # Unified launcher for FastAPI + Streamlit
+├── requirements.txt                 # Python dependencies
+├── LICENSE                          # MIT License
+└── README.md                        # Project documentation
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- pip package manager
+- Python 3.10 or higher
+- `pip` package manager
 
 ### Installation
 
-1. **Clone or download the project files**
+1. **Clone or download the repository**
 2. **Install dependencies**:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application**:
+### Running the Application
+
+#### Option 1: Launch Both Backend & Frontend Together (Recommended)
+
+```bash
+python run_app.py
+```
+
+- **Streamlit UI**: `http://localhost:8501`
+- **FastAPI Backend**: `http://127.0.0.1:8000`
+- **Interactive API Docs (Swagger)**: `http://127.0.0.1:8000/docs`
+
+#### Option 2: Run Services Separately
+
+1. Start the FastAPI backend:
 
    ```bash
-   streamlit run app.py
+   uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
    ```
 
-4. **Open your browser** and navigate to `http://localhost:8501`
+2. In another terminal, start the Streamlit frontend:
 
-## 📋 Usage Guide
+   ```bash
+   streamlit run frontend/app.py
+   ```
 
-### 1. Set Warehouse Location
+> **Note**: If you launch `streamlit run frontend/app.py` on its own without starting Uvicorn first, the frontend automatically bootstraps a local FastAPI backend in the background so everything works out of the box.
 
-- Enter warehouse address (e.g., "Chennai Central")
-- **Automatic Geocoding**: Coordinates are analyzed instantly as you type
-- View precise latitude/longitude coordinates in real-time
-- Green confirmation box appears when geocoding succeeds
+## API Reference
 
-### 2. Add Delivery Locations
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | Service status, version, and algorithm list |
+| `GET` | `/api/v1/algorithms` | Detailed metadata for all routing algorithms |
+| `POST` | `/api/v1/geocode` | Geocode a single address or `"lat, lon"` string |
+| `POST` | `/api/v1/geocode/batch` | Batch geocode up to 50 addresses |
+| `POST` | `/api/v1/optimize` | Optimize delivery route + road geometry + analytics |
+| `POST` | `/api/v1/compare` | Benchmark all routing algorithms on the same stops |
+| `POST` | `/api/v1/analytics` | Recalculate fuel, time, CO₂, and savings metrics |
 
-- **Dynamic Input**: Enter delivery addresses one by one
-- **➕ Add Button**: Click to automatically geocode and add each location
-- **🗑️ Clear All**: Remove all delivery locations at once
-- **Individual Management**: Edit (✏️) or remove (🗑️) specific locations
+## Running Tests
 
-### 3. Monitor Location Status
-
-- **Real-time Feedback**: See coordinates immediately for each location
-- **Status Indicators**: ✅ Ready / ⚠️ Pending for each delivery point
-- **Progress Summary**: "3/4 locations geocoded and ready for optimization"
-- **Visual Layout**: Structured cards with color-coded status
-
-### 4. Optimize Route
-
-- Click "🚀 Optimize Route" once all locations are ready
-- **Instant Processing**: Uses pre-geocoded coordinates for faster optimization
-- **Dijkstra's Algorithm**: Finds shortest paths automatically
-- **Comprehensive Results**: Route order, map, and analytics
-
-### 5. View Results
-
-- **Optimized Route**: Numbered delivery sequence from warehouse
-- **Interactive Map**: Visual route with distance labels
-- **Analytics Dashboard**: Fuel, time, and efficiency metrics
-
-## 🧠 Algorithm Details
-
-### Dijkstra's Shortest Path Algorithm
-
-The application uses Dijkstra's algorithm because:
-
-- **Guaranteed Optimality**: Always finds the shortest path in weighted graphs
-- **Perfect for Logistics**: Delivery locations form a weighted graph with distances as edge weights
-- **Efficient Performance**: O((V + E) log V) time complexity with priority queue
-
-### Distance Calculation
-
-Uses the **Haversine formula** to calculate great-circle distances between coordinates:
-
-```text
-a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
-c = 2 ⋅ atan2( √a, √(1−a) )
-d = R ⋅ c
+```bash
+pytest -v
 ```
 
-Where R = Earth's radius (6371 km)
+## Algorithm Details
 
-## 📊 Analytics Features
+### 1. Dijkstra's Shortest Path + Tour Solvers
 
-### Route Metrics
+- **Dijkstra's Algorithm** computes exact shortest paths in $O((V + E) \log V)$ using a priority queue (`heapq`) over weighted directed/undirected graphs, preserving real-world road asymmetries.
+- **Held-Karp Exact TSP** solves the Traveling Salesperson Problem to proven optimality in $O(n^2 \cdot 2^n)$ via bitmask dynamic programming for up to 14 stops.
+- **2-Opt & Simulated Annealing** refine tours beyond greedy Nearest Neighbor to eliminate route crossings and scale smoothly up to 50 delivery stops.
+- **A\* Search** leverages an admissible great-circle Haversine heuristic $h(n, \text{goal})$ for goal-directed shortest-path lookup.
 
-- **Total Distance**: Complete route length in kilometers
-- **Number of Stops**: Total delivery locations
-- **Fuel Consumption**: Estimated fuel usage and cost
-- **Delivery Time**: Travel time + stop time
+### 2. Distance Calculation
 
-### Efficiency Analysis
-
-- **Distance per Delivery**: Average distance per stop
-- **Route Savings**: Optimization benefits
-- **Efficiency Score**: Overall route performance rating
-
-## 🎨 UI Features
-
-### Modern Design
-
-- **Responsive Layout**: Works on all screen sizes
-- **Visual Indicators**: Color-coded markers and routes
-- **Interactive Elements**: Real-time updates and feedback
-- **Professional Styling**: Clean, logistics-themed interface
-
-### Map Visualization
-
-- **Warehouse Marker**: Green icon for starting point
-- **Delivery Markers**: Blue icons for destinations
-- **Route Lines**: Red polylines showing optimized path
-- **Distance Labels**: Kilometer markers on route
-
-## 🔧 Technical Implementation
-
-### Core Modules
-
-1. **Geocoding Module** (`geocoding.py`)
-   - Address validation and conversion
-   - Error handling for invalid addresses
-   - Batch processing for multiple locations
-
-2. **Distance Calculator** (`distance_calculator.py`)
-   - Haversine formula implementation
-   - Distance matrix generation
-   - Route distance calculations
-
-3. **Graph Builder** (`graph_builder.py`)
-   - Graph data structure
-   - Complete graph construction
-   - Node and edge management
-
-4. **Dijkstra Algorithm** (`dijkstra_algorithm.py`)
-   - Priority queue implementation
-   - Shortest path calculation
-   - Route optimization logic
-
-5. **Map Visualizer** (`map_visualizer.py`)
-   - Folium map creation
-   - Custom markers and styling
-   - Interactive features
-
-6. **Analytics** (`analytics.py`)
-   - Performance metrics
-   - Cost calculations
-   - Efficiency scoring
-
-## 🌍 Example Usage
-
-### Sample Input
-
-- **Warehouse**: Chennai Central
-- **Deliveries**: T Nagar, Adyar, Velachery, Anna Nagar
-
-### Sample Output
-
-- **Optimized Route**: Chennai Central → T Nagar → Adyar → Velachery → Anna Nagar
-- **Total Distance**: 28.5 km
-- **Estimated Time**: 42 minutes
-- **Fuel Required**: 1.9 liters
-
-## 🛠️ Dependencies
+- **Road Network Mode**: Uses the OSRM Table & Route APIs for true driving distances, durations, and street-level polylines.
+- **Haversine Formula** (exact mode & offline fallback):
 
 ```text
-streamlit==1.29.0      # Web application framework
-folium==0.15.0         # Interactive maps
-streamlit-folium==0.19.0 # Streamlit-Folium integration
-geopy==2.4.1           # Geocoding services
-numpy==1.24.3          # Numerical computations
+a = sin²(Δφ/2) + cos φ₁ ⋅ cos φ₂ ⋅ sin²(Δλ/2)
+c = 2 ⋅ asin( √min(1, a) )
+d = R ⋅ c   (where R = 6371.0 km)
 ```
 
-## 🎯 Hackathon Tips
-
-### Why Dijkstra's Algorithm?
->
-> "Dijkstra's Algorithm guarantees the shortest path in weighted graphs. Since delivery locations form a weighted graph with distances as edge weights, it ensures optimal routing for logistics systems."
-
-### Demo Suggestions
-
-1. **Start with a simple example**: 3-4 locations in the same city
-2. **Show the optimization process**: Display distance matrix and graph
-3. **Highlight the benefits**: Compare optimized vs. unoptimized routes
-4. **Demonstrate scalability**: Add more locations to show efficiency
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Geocoding Errors**
-   - Check internet connection
-   - Verify address spelling
-   - Try more specific addresses
-
-2. **Map Not Loading**
-   - Ensure all dependencies are installed
-   - Check browser console for errors
-   - Refresh the application
-
-3. **Slow Performance**
-   - Limit to 10-15 locations for optimal performance
-   - Check system resources
-
-### Error Messages
-
-- `⚠️ Address not found`: Try a more specific address
-- `❌ Could not geocode`: Verify location names
-- `⚠️ Please enter warehouse location`: Add warehouse first
-
-## 🚀 Future Enhancements
-
-### Advanced Features
-
-- **Real-time Traffic Integration**: Use traffic APIs for dynamic routing
-- **Vehicle Capacity Optimization**: Consider load constraints
-- **Multiple Warehouse Support**: Route planning for multiple depots
-- **Time Window Constraints**: Delivery scheduling
-- **Cost Optimization**: Include fuel prices and tolls
-
-### AI/ML Integration
-
-- **Route Prediction**: Machine learning for pattern recognition
-- **Demand Forecasting**: Predict delivery volumes
-- **Dynamic Optimization**: Real-time route adjustments
-
-## 📞 Support
-
-For issues and questions:
-
-1. Check the troubleshooting section
-2. Verify all dependencies are installed
-3. Ensure proper internet connectivity for geocoding
-
-## 📧 Contact Information
+## Contact Information
 
 ### Madhan Mohan Reddy
 
-- 📧 [Email](mailto:madhanmohanreddyperam06@gmail.com)
-- 📱 **Mobile**: +91 9110395993
+- [Email](mailto:madhanmohanreddyperam06@gmail.com)
+- **Mobile**: +91 9110395993
 
 ---
 
-**🚚 Optimizing deliveries, one route at a time!**
+**Optimizing deliveries, one route at a time!**
