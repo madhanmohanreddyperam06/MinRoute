@@ -12,8 +12,6 @@
 
 A full-stack logistics route optimization platform combining a **FastAPI** REST backend and an interactive **Streamlit** dashboard. It pairs shortest-path graph search (**Dijkstra**, **A\***) and TSP solvers (**Held-Karp Exact DP**, **2-Opt**, **Simulated Annealing**) with live **OSRM road network routing** and **Haversine** fallbacks to compute optimal delivery sequences, interactive maps, algorithm benchmarks, and fleet analytics.
 
-[Overview](#core-capabilities) · [Architecture](#system-architecture) · [Algorithms](#optimization-algorithms) · [Routing & Geocoding](#routing--geocoding-pipeline) · [Analytics](#analytics--efficiency-scoring) · [Quick Start](#quick-start) · [API Reference](#rest-api-reference) · [Testing](#testing)
-
 ---
 
 ## Core Capabilities
@@ -87,37 +85,7 @@ flowchart LR
     ROAD -. "Fallback" .-> FALLBACK
 ```
 
-<details>
-<summary><strong>🔄 View End-to-End <code>POST /api/v1/optimize</code> Request Lifecycle</strong></summary>
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant ST as Streamlit UI
-    participant API as FastAPI Optimize API
-    participant GEO as GeocodingService
-    participant DIST as DistanceService
-    participant OPT as DijkstraOptimizer
-    participant ROAD as RoadRoutingService
-    participant ANA as AnalyticsService
-
-    User->>ST: Configure stops, algorithm and vehicle
-    ST->>API: POST /api/v1/optimize (JSON payload)
-    API->>GEO: Resolve missing stop coordinates
-    GEO-->>API: Verified (lat, lon) coordinate map
-    API->>DIST: get_matrices(coords, mode, speed)
-    DIST-->>API: Distance and duration matrices + mode_used
-    API->>OPT: optimize_delivery_route(warehouse, stops, algo, round_trip)
-    OPT-->>API: Ordered stops, leg paths, compute time (ms)
-    API->>ROAD: get_multi_leg_geometries(waypoints)
-    ROAD-->>API: GeoJSON polylines (cached / OSRM / direct)
-    API->>ANA: compute_analytics(baseline vs optimized)
-    ANA-->>API: Savings, fuel, cost, CO2, time and efficiency score
-    API-->>ST: OptimizeRouteResponse
-    ST-->>User: Route flow chips, Folium map, Plotly charts and exports
-```
-
-</details>
 
 ---
 
@@ -127,12 +95,12 @@ sequenceDiagram
 
 | ID | Strategy Name | Category | Time Complexity | Optimality Guarantee | Max Stops | Best Use Case |
 | :--- | :--- | :--- | :--- | :--- | :---: | :--- |
-| `auto` | Auto (Best Strategy) | Adaptive Hybrid | Exact $\le 12$ stops; Heuristic $> 12$ | Optimal $\le 12$ stops; Near-optimal $> 12$ | `50` | Default production choice for any stop count |
-| `held_karp` | Held-Karp Exact TSP | Bitmask Dynamic Programming | $O(n^2 \cdot 2^n)$ | Mathematically proven optimal | `14` | Small-to-medium routes needing guaranteed global optimum |
-| `dijkstra_2opt` | Dijkstra + NN + 2-Opt | Shortest Path + Local Search | $O(V(V+E)\log V + n^3)$ | Crossing-free local optimum | `50` | Fast asymmetric road routes up to 50 stops |
-| `dijkstra_nn` | Dijkstra + Nearest Neighbor | Greedy Constructive Baseline | $O(V(V+E)\log V + n^2)$ | Greedy heuristic | `50` | Fast baseline comparison against unrefined greedy routing |
-| `astar_2opt` | A\* Shortest Path + 2-Opt | Heuristic Graph Search + 2-Opt | $O(V(V+E)\log V + n^3)$ | Crossing-free local optimum | `50` | Goal-directed pathfinding with admissible Haversine $h(n)$ |
-| `simulated_annealing` | Dijkstra + Simulated Annealing | Seeded Stochastic Metaheuristic | $O(\text{iterations} \cdot n)$ | Escapes local minima | `50` | Larger routes ($13\text{–}50$ stops) with complex stop clusters |
+| `auto` | Auto (Best Strategy) | Adaptive Hybrid | Exact ≤ 12 stops; Heuristic > 12 | Optimal ≤ 12 stops; Near-optimal > 12 | `50` | Default production choice for any stop count |
+| `held_karp` | Held-Karp Exact TSP | Bitmask Dynamic Programming | `O(n² · 2ⁿ)` | Mathematically proven optimal | `14` | Small-to-medium routes needing guaranteed global optimum |
+| `dijkstra_2opt` | Dijkstra + NN + 2-Opt | Shortest Path + Local Search | `O(V(V+E)log V + n³)` | Crossing-free local optimum | `50` | Fast asymmetric road routes up to 50 stops |
+| `dijkstra_nn` | Dijkstra + Nearest Neighbor | Greedy Constructive Baseline | `O(V(V+E)log V + n²)` | Greedy heuristic | `50` | Fast baseline comparison against unrefined greedy routing |
+| `astar_2opt` | A\* Shortest Path + 2-Opt | Heuristic Graph Search + 2-Opt | `O(V(V+E)log V + n³)` | Crossing-free local optimum | `50` | Goal-directed pathfinding with admissible Haversine `h(n)` |
+| `simulated_annealing` | Dijkstra + Simulated Annealing | Seeded Stochastic Metaheuristic | `O(iterations · n)` | Escapes local minima | `50` | Larger routes (`13–50` stops) with complex stop clusters |
 
 ### Strategy Selection & Fallback Logic
 
@@ -140,13 +108,13 @@ sequenceDiagram
 flowchart TD
     START["optimize_delivery_route(stops, algorithm)"] --> CHECK{"Requested Algorithm?"}
 
-    CHECK -- "auto" --> AUTO_LIMIT{"stop_count <= 12?"}
+    CHECK -- "auto" --> AUTO_LIMIT{"stop_count ≤ 12?"}
     AUTO_LIMIT -- "Yes" --> HK["Held-Karp Exact DP (Guaranteed Optimal)"]
     AUTO_LIMIT -- "No (13 to 50)" --> SA["Simulated Annealing vs 2-Opt (Lower Cost)"]
 
-    CHECK -- "held_karp" --> HK_LIMIT{"stop_count <= 14?"}
+    CHECK -- "held_karp" --> HK_LIMIT{"stop_count ≤ 14?"}
     HK_LIMIT -- "Yes" --> HK
-    HK_LIMIT -- "No (> 14)" --> TWO_OPT["Auto-Switch to Dijkstra + 2-Opt"]
+    HK_LIMIT -- "No (Above 14)" --> TWO_OPT["Auto-Switch to Dijkstra + 2-Opt"]
 
     CHECK -- "dijkstra_2opt / astar_2opt" --> TWO_OPT
     CHECK -- "dijkstra_nn" --> NN["Dijkstra + Nearest Neighbor"]
@@ -169,7 +137,7 @@ xychart-beta
 ```
 
 > [!NOTE]
-> - **Asymmetric Road Weights**: `GraphBuilder` builds a complete **directed** graph so one-way streets and asymmetric OSRM driving distances ($d_{u \to v} \ne d_{v \to u}$) are preserved across Dijkstra, A\*, Held-Karp, 2-Opt, and Simulated Annealing.
+> - **Asymmetric Road Weights**: `GraphBuilder` builds a complete **directed** graph so one-way streets and asymmetric OSRM driving distances (`d(u → v) ≠ d(v → u)`) are preserved across Dijkstra, A\*, Held-Karp, 2-Opt, and Simulated Annealing.
 > - **Deterministic Metaheuristic**: `simulated_annealing` uses a fixed seed (`random.Random(42)`), `65%` 2-Opt reversals / `35%` single-stop relocations, cooling rate `0.992`, `min(2500, max(400, n * 120))` iterations, a final 2-Opt polish, and selects the shorter tour between SA and standalone 2-Opt.
 
 ---
@@ -180,7 +148,7 @@ xychart-beta
 
 | Priority | Tier / Source | Trigger Condition | Technical Behavior | Output `source` Tag |
 | :---: | :--- | :--- | :--- | :--- |
-| **1** | Direct Coordinate Parser | Matches `lat, lon` or `(lat lon)` regex | Validates $-90 \le \text{lat} \le 90$ and $-180 \le \text{lon} \le 180$ | `coordinates` |
+| **1** | Direct Coordinate Parser | Matches `lat, lon` or `(lat lon)` regex | Validates `-90° ≤ lat ≤ 90°` and `-180° ≤ lon ≤ 180°` | `coordinates` |
 | **2** | Session Memory Cache | `use_cache=true` & normalized key hit | Thread-safe O(1) lookup (`_session_cache`) | *(cached prior source)* |
 | **3** | OpenStreetMap Nominatim | Uncached text address | Rate-limited (`1.1s` interval), `10.0s` timeout, up to 2 retries | `nominatim` |
 | **4** | Komoot Photon API | Nominatim returns empty or fails | HTTP GET to `photon.komoot.io/api/` (`limit=1`) | `photon` |
@@ -191,11 +159,13 @@ xychart-beta
 | Distance Mode | Matrix Source | Polyline Source | Map Leg Color & Style | Duration Source |
 | :--- | :--- | :--- | :--- | :--- |
 | `road` *(Default)* | OSRM `/table/v1/driving` (`4.0s` timeout) | OSRM `/route/v1/driving` (`steps=true, geometries=geojson`, LRU cache `500`) | **Blue Solid** (`#1D4ED8`) delivery · **Green Solid** (`#059669`) return | OSRM driving durations (minutes) |
-| `haversine` *(or Fallback)* | Great-circle matrix ($R = 6371.0\text{ km}$) | Direct coordinate pairs `[src, dst]` | **Orange Dashed** (`#EA580C`) direct fallback leg | Distance $\div$ `average_speed_km_per_hour` |
+| `haversine` *(or Fallback)* | Great-circle matrix (`R = 6371.0 km`) | Direct coordinate pairs `[src, dst]` | **Orange Dashed** (`#EA580C`) direct fallback leg | `Distance ÷ average_speed_km_per_hour` |
 
-**Haversine Great-Circle Formula** *(with $[0, 1]$ domain clamping for antipodal numerical safety)*:
+**Haversine Great-Circle Formula** *(with `[0, 1]` domain clamping for antipodal numerical safety)*:
 
-$$a = \sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right), \qquad d = 2R \cdot \arcsin\left(\sqrt{\min(1, \max(0, a))}\right), \quad R = 6371.0\text{ km}$$
+$$
+a = \sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right), \qquad d = 2R \cdot \arcsin\left(\sqrt{\min(1, \max(0, a))}\right), \quad R = 6371.0\text{ km}
+$$
 
 <details>
 <summary><strong> Built-In Quick Demo Presets (One-Click in UI)</strong></summary>
@@ -218,28 +188,28 @@ All savings metrics compare the optimized sequence against the **actual unoptimi
 
 | Metric | Computation / Formula | Default Parameter | API Field |
 | :--- | :--- | :--- | :--- |
-| **Distance Saved** | $\text{Baseline Distance} - \text{Optimized Distance}$ | `—` | `distance_saved_km` |
-| **Savings (%)** | $(\text{Distance Saved} \div \text{Baseline Distance}) \times 100$ | `—` | `savings_percentage` |
-| **Fuel Consumption** | $\text{Distance} \div \text{Mileage}$ | `15.0 km/L` | `fuel_liters`, `fuel_saved_liters` |
-| **Fuel Cost** | $\text{Fuel Liters} \times \text{Fuel Price}$ | `₹100.0 / L` (`₹`, `$`, `€`, `£`) | `fuel_cost`, `cost_saved` |
-| **CO₂ Footprint** | $\text{Fuel Liters} \times \text{Emission Factor}$ | `2.31 kg CO₂ / L` | `co2_emissions_kg`, `co2_saved_kg` |
-| **Total Route Time** | $\text{Driving Time} + (\text{Stops} \times \text{Service Time})$ | `40.0 km/h`, `10.0 min/stop` | `travel_time_minutes`, `total_time_hours` |
+| **Distance Saved** | `Baseline Distance − Optimized Distance` | `—` | `distance_saved_km` |
+| **Savings (%)** | `(Distance Saved ÷ Baseline Distance) × 100` | `—` | `savings_percentage` |
+| **Fuel Consumption** | `Distance ÷ Mileage` | `15.0 km/L` | `fuel_liters`, `fuel_saved_liters` |
+| **Fuel Cost** | `Fuel Liters × Fuel Price` | `₹100.0 / L` (`₹`, `$`, `€`, `£`) | `fuel_cost`, `cost_saved` |
+| **CO₂ Footprint** | `Fuel Liters × Emission Factor` | `2.31 kg CO₂ / L` | `co2_emissions_kg`, `co2_saved_kg` |
+| **Total Route Time** | `Driving Time + (Stops × Service Time)` | `40.0 km/h`, `10.0 min/stop` | `travel_time_minutes`, `total_time_hours` |
 
 ### Efficiency Score Breakdown (`0–100`)
 
 ```mermaid
 pie showData
-    title "Max Route Efficiency Score Allocation (100 Points)"
+    title Max Route Efficiency Score Allocation (100 Points)
     "Base Score" : 55
-    "Distance Savings Bonus (max 25)" : 25
-    "Stop Density Bonus (max 20)" : 20
+    "Distance Savings Bonus" : 25
+    "Stop Density Bonus" : 20
 ```
 
 | Component | Scoring Rule | Max Points |
 | :--- | :--- | :---: |
-| **Base Score** | Fixed baseline for valid delivery route ($\text{delivery\_count} > 0$) | `55` |
-| **Savings Bonus** | $\min(\max(\text{savings\_percentage}, 0) \times 1.5,\; 25)$ | `25` |
-| **Stop Density Bonus** | $\le 5\text{ km/stop}: +20$ · $\le 10\text{ km}: +15$ · $\le 20\text{ km}: +10$ · $\le 35\text{ km}: +5$ · $> 35\text{ km}: +0$ | `20` |
+| **Base Score** | Fixed baseline for valid delivery route (`delivery_count > 0`) | `55` |
+| **Savings Bonus** | `min(max(savings_percentage, 0) × 1.5, 25)` | `25` |
+| **Stop Density Bonus** | `≤ 5 km/stop`: `+20` · `≤ 10 km`: `+15` · `≤ 20 km`: `+10` · `≤ 35 km`: `+5` · `> 35 km`: `+0` | `20` |
 
 ---
 
