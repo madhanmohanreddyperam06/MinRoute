@@ -420,14 +420,16 @@ pytest -v
 
 ---
 
-## License & Contact
 
-| Field | Details |
-| :--- | :--- |
-| **Author** | Madhan Mohan Reddy |
-| **Mobile** | `+91 9110395993` |
-| **License** | [MIT License](LICENSE) |
+## Contact Information
+
+### Madhan Mohan Reddy
+
+- **Email**: <madhanmohanreddyperam06@gmail.com>
+- **Mobile**: +91 9110395993
 
 ---
+<div align="center">
+© 2026 Campus Finder. All rights reserved.
+</div>
 
-**Optimizing deliveries, one route at a time!**
