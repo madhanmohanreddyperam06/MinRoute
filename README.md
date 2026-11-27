@@ -430,6 +430,6 @@ pytest -v
 
 ---
 <div align="center">
-© 2026 Campus Finder. All rights reserved.
+© 2026 MinRoute. All rights reserved.
 </div>
 
